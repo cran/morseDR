@@ -1,0 +1,454 @@
+---
+title: "Tutorial"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Tutorial}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r property, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7
+)
+```
+
+```{r setup, message=FALSE}
+library(morseDR)
+```
+
+The package `morseDR` is dedicated to the analysis of data from standard toxicity tests at target time. It provides a simple workflow for exploring/visualising a dataset and computing estimates of risk assessment indicators, such as the typical $LC_{50}$ or $EC_{50}$ values.
+
+This document illustrates a typical use of `morseDR` on binary, count and quantitative continuous data, which can be followed step by step to analyse new datasets. Details on models and parameters can be found in the vignette *Dose-Response models in the `morseDR` package*.
+
+# Binary data analysis
+
+The following example shows all the steps to perform a dose-response analysis on standard **binary** toxicity test data and to produce estimates of the $LC_x$. We are using survival data as an example, but the same analysis can be performed for any type of binary data (e.g., mobility or burrowing).
+
+We will use a dataset from the library named `cadmium2`, which contains both survival and reproduction data from a chronic laboratory toxicity test. In this experiment, snails were exposed to six concentrations of a heavy metal contaminant (cadmium) for 56 days.
+
+## Step 1: check the structure and the dataset integrity
+
+The data from a survival toxicity test should be collected in a `data.frame` with a specific layout. This is documented in the section on the `binaryData()` function in the **Reference manual* or the `modelData(..., type = 'binary')`. You can examine the datasets provided in the package, e.g., `cadmium2`.
+
+First, we load the dataset and use the `binaryDataCheck()` function to check if it has the expected layout:
+
+```{r step1TT}
+data(cadmium2)
+binaryDataCheck(cadmium2)
+```
+
+The output `Correct formatting` just informs that the dataset is well-formatted.
+
+## Step 2: create a `BinaryData` object
+
+The `BinaryData` class corresponds to correctly formatted binary data and is the basic layout used for the subsequent operations. Note that if the call 
+to `binaryDataCheck()` returns no error (namely, the output `Correct formatting`), it is guaranteed that the `binaryData()` will not fail.
+
+```{r step2TT}
+survData_Cd <- binaryData(cadmium2)
+head(survData_Cd)
+```
+
+Note also the use of the function `modelData(..., type = 'binary')`:
+
+```{r step2TTm}
+survData_Cd <- modelData(cadmium2, type = 'binary')
+head(survData_Cd)
+```
+
+## Step 3: visualise the raw data
+
+The `plot()` function can be used to plot the number of surviving individuals as a function of time for all concentrations and replicates.
+
+```{r step3TT}
+plot(survData_Cd, pool.replicate = FALSE)
+```
+
+If the argument `pool.replicate` is `TRUE`, the data points at a given time point and a given concentration are pooled and only the mean number of survivors is plotted. To observe the full dataset, this option must be set to `FALSE`.
+
+By selecting one of the concentrations tested, we can visualise the particular plot corresponding to that specified concentration:
+
+```{r plotTT}
+plot(survData_Cd, concentration = 124,
+     addlegend = FALSE,
+     pool.replicate = FALSE)
+```
+
+We can also pool the replicates. In such a situation, the legend becomes useless.
+
+```{r plotTTpool}
+plot(survData_Cd, pool.replicate = TRUE)
+```
+
+We can also plot the survival rate, at a given time point, as a function of concentration, with binomial confidence intervals around the data. This is achieved by using the `doseResponse()` function and setting the `target.time` option (the default is the end of the experiment).
+
+```{r doseResponse_}
+# without pooling replicates
+survData_Cd_DR_ <- doseResponse(survData_Cd, target.time = 21)
+```
+
+```{r plot_DoseResponse_}
+plot(survData_Cd_DR_)
+```
+
+```{r plot_DoseResponse_logScaled}
+plot(survData_Cd_DR_, log.scale = TRUE)
+```
+
+
+```{r doseResponse}
+# pooling replicates
+survData_Cd_DR <- doseResponse(survData_Cd, target.time = 21, pool.replicate = TRUE)
+```
+
+```{r plot_DoseResponse}
+plot(survData_Cd_DR)
+```
+
+```{r plot_DoseResponseNoLegend}
+# removing the legend
+plot(survData_Cd_DR, addlegend = FALSE)
+```
+
+```{r plot_DoseResponseTT}
+plot(survData_Cd_DR, target.time = 21, addlegend = TRUE)
+```
+
+## Step 4: fit an exposure-response model to the survival data at target time
+
+We are now ready to fit the  probabilistic model to the survival data, in order to describe the relationship between the concentration of the chemical compound and survival at a given target time. Our model assumes that the latter is a log-logistic function of the former, from which the package provides estimates of the parameters.
+
+We can use the `fit` function which automatically recognises the class of the `BinaryData` object.
+
+```{r step4, results="hide", cache = TRUE}
+survFit_Cd <- fit(survData_Cd, target.time = 21)
+```
+
+An object of the `FitTT`, here specifically of the `BinaryFitTT` class is returned with the estimated parameters as a posterior[^1] distribution, quantifying the uncertainty around their true value.
+
+Parameter estimates can be obtained by using the `summary()` function. If the inference went well, it is expected that the difference between the quantiles of the posteriors will be reduced compared to the prior, meaning that the data were helpful in reducing the uncertainty on the true value of the parameters.
+
+```{r summary_survFit_Cd}
+summary(survFit_Cd)
+```
+
+Then, we can compute any $EC_x$ or $LC_x$ values as the median (i.e., a point estimate) and the 2.5% and 97.5% quantiles of the posterior distribution (i.e., a measure of uncertainty, also known as the 95% credible interval).
+
+```{r LCxBin}
+LCx_Cd <- xcx(survFit_Cd, x = c(10, 20, 30, 40, 50))
+LCx_Cd$quantiles
+```
+
+We also have the distribution of `XCx` object:
+
+```{r LCxBinDistribution}
+head(LCx_Cd$distribution)
+```
+
+And, we can plot the distribution
+
+```{r plotLCxBin}
+plot(LCx_Cd)
+```
+
+
+## Plot fitting results
+
+The fit can also be plotted as follows:
+
+```{r step4plot, warning=FALSE}
+plot(survFit_Cd, log.scale = TRUE, adddata = TRUE, addlegend = TRUE)
+```
+
+This plot shows the estimated relationship between the concentration of the chemical compound and the survival probability (orange curve). It is computed by setting each parameter to the median of its posterior. To assess the uncertainty around this median curve, we generate many such curves by sampling the parameters in the posterior distribution. This results in the grey band, which for any given concentration shows an interval (namely the credible interval) that is expected to contain the observed survival probability 95\% of the time.
+
+The experimental data are shown as black dots and correspond to the observed survival probabilities when all replicates are pooled. The black error bars correspond to the 95\% binomial confidence interval, which is another, simpler way of bounding the most likely value of the observed survival probability for a tested concentration. In favourable situations, we expect that the credible interval around the estimated curve and the confidence interval around the experimental data overlap to a large extent.
+
+Note that the `survFitTT()` function will warn you if the estimated $LC_{x}$ estimate lies outside the range of the tested concentrations, as in the following example:
+
+```{r wrongTT, results="hide", cache = TRUE}
+data("cadmium1")
+doubtful_fit <- fit(binaryData(cadmium1), target.time = 21)
+```
+
+```{r wrongTTplot, warning=FALSE}
+plot(doubtful_fit, log.scale = TRUE, adddata = TRUE, addlegend = TRUE)
+```
+
+In this example, the experimental design does not include enough high concentrations, so we are missing measurements that would have lead to more than 50\% of effect at the highest one. Therefore, even if the fit delivers an estimate of parameter $e$, it should be considered unreliable.
+
+## Step 5: the posterior predictive check as a goodness-of-fit criterion
+
+The fit can be further checked using what is known as a posterior
+predictive check (PPC): the principle is to plot the observed values against their corresponding predictions, plotted as medians along with their 95\% credible intervals. If the fit is correct, we expect about 95\% of the data to fall within the credible intervals.
+
+```{r step5TT, results="hide"}
+survFit_Cd_PPC <- ppc(survFit_Cd)
+```
+
+```{r plotSurvPPC}
+plot(survFit_Cd_PPC)
+```
+
+The black dots on the above PPC plot correspond to the observed values (*$x$ coordinate*) against their corresponding estimated medians (*$y$ coordinate*), along with their 95% credible intervals (vertical segments). Ideally, observations and predictions should be in agreement, so we would expect to see the black dots to be aligned along the first bisector line of equation $Y = X$ (i.e. the 1:1 line) The implemented model provides a tolerable variation around the predicted mean value as an interval where we expect 95% of the dots to be in average. The intervals are coloured in green if they overlap with the 1:1 line, otherwise they are coloured in red.
+
+The summary of PPC is also available:
+
+```{r summarySurvPPC}
+summary(survFit_Cd_PPC)
+```
+
+## Prior Posterior representation
+
+```{r pp_survCd}
+Cd_PP <- priorPosterior(survFit_Cd)
+plot(Cd_PP)
+```
+
+The expectation if to get narrower orange (posterior) distributions compared to the grey(prior) ones, as well as posterior distribution not constrained in their tails by the priors (e.g., parameters $b$ and $e$), except if it corresponds to biological or a mathematical constrain (e.g., parameter $d$).
+
+## Correlation plot
+
+Using the library `GGally`, you can get a correlation plot between parameters:
+
+```{r ggpairs}
+library(GGally)
+Cd_posterior <- posterior(survFit_Cd)
+ggpairs(Cd_posterior) 
+```
+
+The expectation is to get potato shapes in pairs of parameter plans.
+
+## Goodness of Fit
+
+To test the goodness of fit, you can extract the model, and element of
+the `FitTT` object to run extra modules like `dic` or `waic`:
+
+```{r DIC}
+library(rjags)
+fit <-  survFit_Cd
+model <- rjags::jags.model(file = textConnection(fit$model.specification$model.text),
+                    data = fit$jags.data,
+                    n.chains = length(fit$mcmc),
+                    n.adapt = 3000)
+
+n_iter <- nrow(fit$mcmc[[1]])
+dic.samples(model, n.iter = n_iter)
+```
+
+If you have JAGS version >4.3.0, you can load the module `load.module("dic")`, and then compute both deviance and WAIC:
+
+```{r WAIC}
+load.module("dic")
+jags.samples(model, c("deviance", "WAIC"),
+             type = "mean", n.iter = n_iter, thin = 10)
+```
+
+# Count data analysis
+
+The steps for dose-response analysis of **count** data are exactly the same as those described above for binary data, except that the ultimate goal is to get $EC_x$ estimates. We use reproduction data as an example, but the same analysis can be performed for any type of count data.
+
+Here is a typical session:
+```{r countData}
+# (1) load dataset
+data(cadmium2)
+
+# (2) check structure and integrity of the dataset
+countDataCheck(cadmium2)
+
+# (3) create a `reproData` object
+dat <- countData(cadmium2)
+head(dat)
+```
+
+The last step `countData()` can be done using the function `modelData(..., type = 'count')`:
+
+```{r countDatam}
+# (3) create a `reproData` object
+dat <- modelData(cadmium2, type = 'count')
+head(dat)
+```
+
+Then we can plot the data:
+
+```{r countData_plt}
+# (4) represent the cumulated number of offspring as a function of time
+plot(dat, concentration = 124, addlegend = TRUE, pool.replicate = FALSE)
+```
+
+And also plot the dose-response:
+
+```{r countData_DR}
+# (5) represent the reproduction rate as a function of concentration
+dat_DR <- doseResponse(dat, target.time = 28)
+plot(dat_DR)
+```
+
+
+```{r bestFit, cache = TRUE}
+# (7) fit a concentration-effect model at target-time
+reproFit <- fit(dat, stoc.part = "bestfit", target.time = 21, quiet = TRUE)
+summary(reproFit)
+```
+
+```{r ECx_count}
+# (8) Get ECx estimates
+ECx_count <- xcx(reproFit, x = c(10, 20, 30, 40, 50))
+ECx_count$quantiles
+```
+
+
+```{r plotReproduction, warning=FALSE}
+# (9) Plot the fit
+plot(reproFit, log.scale = TRUE, adddata = TRUE, addlegend = TRUE)
+```
+
+```{r plotReproPPC}
+# (10) PPC plot
+ppcReproFit <- ppc(reproFit)
+plot(ppcReproFit)
+```
+
+As above, the expectation from the PPC plot is that 95\% of the data will fall within the predicted 95\% credible intervals.
+
+## Model comparison
+
+For count data analyses, the `morseDR` package automatically compares a model that neglects the between-replicate variability (called the *Poisson model*) with another that takes it into account (called the *Gamma-Poisson model*). However, you can manually choose either one or the other with the `stoc.part` option. Setting this option to `"bestfit"` lets the `fit()` function decides which models fit the data best. The corresponding choice can be seen by calling the `summary` function:
+
+```{r summaryReproduction}
+summary(reproFit)
+```
+
+When the the *Gamma-Poisson model* is selected (or has been automatically selected), the summary will show an additional parameter called `omega`, which quantifies the variability between replicates: the higher the `omega`, the higher the variability between replicates.
+
+## Count data versus binary data dedicated functions
+
+In `morseDR`, count datasets are a special case of binary datasets. Indeed, a count dataset includes the same information as in a binary dataset plus the information about count records. For this reason, the S3 class `countData` inherits from the `binaryData` class, which means that any operation on a `binaryData` object is permitted on a `countData` object. In particular, to use the plot function related to the binary data analysis on a `binaryData` object, we can first use `binaryData` as a formatting function:
+
+```{r reproData}
+dat <- countData(cadmium2)
+plot(binaryData(dat))
+```
+
+In Bayesian inference, the parameters of a model are estimated
+from the data using what is called a *prior*, which is a probability
+distribution that represents an initial guess of the true value of the model parameters before looking at the data. The *posterior* distribution represents the uncertainty in the parameters after looking at the data and combining them with the prior information. To obtain a point estimate of the parameters, it is typical to compute the mean or median of the posterior distribution. We can quantify the uncertainty by reporting the standard deviation or an inter-quantile distance from this posterior distribution.
+
+The summary of PPC is also available:
+
+```{r summaryReproPPC}
+ppcReproFit <- ppc(reproFit)
+summary(ppcReproFit)
+```
+
+```{r plotPPCrepro}
+plot(ppcReproFit)
+```
+
+# Quantitative continuous data analysis
+
+The `morseDR` package also provides turnkey R functions for performing dose-response analysis of **quantitative continuous** toxicity test data in a Bayesian framework, including the estimation of the x\% effective toxicity value, which can be an x\% effective rate ($ER_x$), an x\% effective concentration ($EC_x$) or any other expression of your choice. We use growth data as an example, but the same analysis can be performed for any type of quantitative continuous data.
+
+## Load growth data
+
+You can have access to already implemented datasets with the `data` function. The `continuousData()` function converts a data frame into a `continuousData` object after performing all the checks require for quantitative continuous analysis.
+
+```{r growthData}
+data("cadmium_daphnia")
+gCdd <- continuousData(cadmium_daphnia)
+head(gCdd)
+```
+
+```{r growthDataModel}
+# Equivalent to the above line
+gCdd <- modelData(cadmium_daphnia, type = "continuous")
+head(gCdd)
+```
+
+As with other analyses on binary and count data, you can check the compliance of the dataset by using the `continuousDataCheck()` function.
+
+```{r growthDataCheck}
+continuousDataCheck(cadmium_daphnia)
+```
+
+The dataset can then be plotted with different options: 
+
+```{r plotGrowthData}
+plot(gCdd)
+```
+
+```{r plotGrowthDataConc}
+plot(gCdd, concentration = 25)
+```
+
+```{r plotGrowthDataNoLegend}
+plot(gCdd, addlegend = TRUE)
+```
+
+## Dose-response plot of quantitative conitnuous data
+
+Before the inference step, you can run the `t.test` function on the data you uploaded with the `doseResponse()` function. 
+
+```{r DoseResponse}
+gCdd_DR <- doseResponse(gCdd)
+plot(gCdd_DR)
+```
+
+```{r DoseResponseLogScaled}
+plot(gCdd_DR, log.scale = TRUE)
+```
+
+
+By default, the dose-response analysis is performed at the end of the experiment (namely the maximal time point in the dataset). However, you can specify a different `target.time`.
+
+```{r DoseResponseTT}
+gCdd_DRTT <- doseResponse(gCdd, target.time = 7)
+plot(gCdd_DRTT)
+```
+
+## Inference
+
+The fitting process is done using the `fit()` function:
+
+```{r growthFit, cache = TRUE}
+fit_gCdd <- fit(gCdd)
+```
+
+Then you can plot the results:
+
+```{r plotGrowthFit}
+plot(fit_gCdd, adddata = TRUE)
+```
+
+## Posterior Predictive Check (PPC)
+
+```{r growthPPC}
+# First calculate the PPC coordinates of the the predictions
+ppc_gCdd <- ppc(fit_gCdd)
+```
+
+```{r plot_growthPPC}
+# Plot the PPC
+plot(ppc_gCdd)
+```
+
+Finally, the summary of PPC is possible:
+
+```{r summaryGrowthPPC}
+summary(ppc_gCdd)
+```
+
+```{r xcx_ContinuousFitTT}
+XCX_gCdd <- xcx(fit_gCdd, x = 50)
+XCX_gCdd$quantiles
+```
+
+
+```{r xcx_ContinuousFitTT_plot}
+plot(XCX_gCdd)
+```

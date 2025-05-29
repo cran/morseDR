@@ -1,0 +1,17 @@
+=== morseDR : MOdelling tools for Dose-Response ===
+
+Version 0.1.2
+=============
+
+- Fix typo for CRAN submission: add values to documentation
+
+Version 0.1.1
+=============
+
+- Add gamma stochastic part in the Continuous analysis.
+
+
+Version 0.1.0
+=============
+
+- Initial release.

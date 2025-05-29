@@ -1,0 +1,266 @@
+---
+title: "Dose-Response models in the `morseDR` package"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Dose-Response models in the 'morseDR' package}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+bibliography: references.bib 
+---
+
+```{r settings, echo=FALSE}
+options(rmarkdown.html_vignette.check_title = FALSE)
+```
+
+
+```{=tex}
+\newcommand*{\INT}{${\tiny INT}$}
+\newcommand*{\diffdchar}{\mathrm{d}}
+\newcommand*{\dd}{\mathop{\diffdchar\!}}
+\newcommand*{\Cint}{C^{\mbox{\INT}}}
+\newcommand*{\z}{z_w}
+\newcommand*{\tz}{t^z}
+```
+
+This document describes the Dose-Response (DR) models that are used in the `morseDR` package for the analysis of binary, count, and quantitative continuous data as collected in standard toxicity tests. As such, this document contains all the mathematical specifications of the `morseDR` package. For a more practical introduction, please refer to the **Tutorial** vignettes ; for information on the structure and contents of the package, please refer to the **Reference Manual**.
+
+In the `morseDR` package, model parameters are estimated using Bayesian inference, where posterior distributions are computed from the likelihood of the observed data combined with prior distributions on the parameters. These priors are given after each model description below.
+
+# DR modelling of binary data
+
+**Binary** (or quantal) data arise when a particular property is recorded as being present or absent in each individual (e.g., an individual shows an effect or it does not show an effect). Therefore, these data can only exhibit two states. Typically, binary data are presented as the number of individuals exhibiting the property (e.g., survival, mobility) out of a total number of individuals, as observed in each experimental unit; as such data are usually expressed as a fraction, the total number of individuals at the beginning of the experiment must also be recorded for each experimental unit.
+
+For the sake of clarity, we will refer to survival toxicity test data below, but the models apply **whatever the type of binary data**.
+
+In a survival toxicity test, individuals are exposed to a range of measured concentrations of a given contaminant, with at least five concentrations tested plus the control. The number of surviving individuals is recorded at specified time points throughout the experiment, and the experimental conditions are replicated several times.
+
+In standard toxicity tests, the concentration is kept constant throughout the experiment. Therefore, a **DR analysis** at a specified target time (usually the end of the experiment) is recommended, at least at Tier-1 of the risk assessment scheme. The `morseDR` package provides all ready-to-use functions to easily perform these DR analyses.
+
+Standard DR analyses are performed at a specific time point, called *target time* in the `morseDR` package. The so-called **DR analyses at target time** are performed at the end of the experiment by default, but theoretically any other time point can be chosen. The `morseDR` package will refer to such analyses by adding the suffix **TT** to its functions.
+
+Note that dealing with time-varying exposure requires the use of **Toxicokinetic-Toxicodynamic models**, which are implemented in the dedicated `morseTKTD` package.
+
+## Target-time DR analysis of binary data
+
+From a survival toxicity test, a dataset at target time is a collection $D = \{ (c_i, n_i^{init}, n_i) \}_i$ of experiments, where $c_i$ is the tested concentration, $n_i^{init}$ the initial number of individuals and $n_i$ the surviving number of individuals at the chosen target time. Triplets such that $c_i = 0$ correspond to the control condition.
+
+### Modelling
+
+below is the model used in `morseDR` in the particular case of target time analysis. Let $t$ be the target time in days. We assume that  the *mean survival rate after* $t$ days is given by a function
+$f$ depending on the contaminant concentration $c$. We also assume that the death of two individuals are two independent events. Hence, given an initial number $n^{init}_i$ of individuals in the toxicity test at concentration $c_i$, we obtain that the number $N_i$ of surviving individuals at time $t$ follows a binomial distribution:
+
+$$
+N_i \sim \mathcal{B}(n^{init}_i, f(c_i))
+$$
+
+Note that this model neglects inter-replicate variations, as a given
+concentration of the contaminant implies a fixed value of the survival rate.
+
+There may be various possibilities to mathematically express function $f$. In `morseDR`, we chose the three parameters log-logistic function:
+
+$$
+f(c;\theta) = \frac{d}{1 + (\frac{c}{e})^b} \quad \textrm{with} \quad
+\theta=(e,b,d)
+$$
+
+where $e$, $b$ and $d$ are positive parameters. In particular, $d$
+corresponds to the survival rate in absence of contaminant (ie, under control conditions) and $e$ corresponds to the $LC_{50}$. Parameter $b$ is related to the effect intensity of the contaminant.
+
+### Inference
+
+Posterior distributions for parameters $b$, $d$ and $e$ are estimated
+using the JAGS software [@rjags2025] with the following priors:
+
+-   we assume that he range of the tested concentrations in a toxicity experiment has been chosen to wrap the $LC_{50}$ with a high probability. Formally, we chose:
+    
+$$
+    \log_{10} e \sim \mathcal{N}\left(\frac{\log_{10} (\min_i c_i) +
+    \log_{10} (\max_i c_i)}{2}, \frac{\log_{10} (\max_i c_i) - 
+    \log_{10} (\min_i c_i)}{4} \right)
+$$
+    
+which implies that $e$ has a probability slightly higher than 95\% to lie between the minimum and the maximum tested concentrations.
+
+-   we chose a quasi non-informative prior distribution for the shape
+    parameter $b$:
+$$
+\log_{10} b \sim \mathcal{U}(-2,2)
+$$
+
+- The prior on parameter $d$ is chosen as follows: if we detect no mortality in the control experiments then we automatically set $d = 1$, otherwise we assume a uniform prior between 0 and 1 for $d$.
+
+# DR modelling of count data
+
+Data is **countable** (or **discrete**) if it can only take a finite number of possible values, or if there is a space on the real number line between two successive possible values. Discrete data is usually obtained when something is counted using whole numbers (or **integers**). Typical discrete or **count data** is reproduction data. For the sake of clarity, we will refer to them below, but the models apply whatever the type of count data.
+
+In a reproductive toxicity test, we observe the number of offspring produced by a sample of adult individuals exposed to a given concentration of a contaminant over a given period of time. The offspring (juveniles, clutches or eggs) are regularly counted and removed from the medium at each time point, so the reproducing population cannot increase. However, it may decrease if some individuals die during the experiment. The same procedure is usually repeated at different concentrations of the contaminant to establish a quantitative relationship between the rate of reproduction and the concentration of the contaminant in the medium.
+
+In reproductive toxicity testing, it is often the case that a proportion of individuals die during the observation period. In previous approaches, it has been suggested to consider the cumulative number of reproductive outputs without considering mortality [@OECD2004; @OECD2008], or to exclude replicates in which mortality occurred [@OECD2012]. However, individuals may have reproduced before dying and thus contributed to the observed cumulative number of reproductive outputs. In addition, the first individuals to die are likely to be the most sensitive to the contaminant of interest, so the information on reproduction from these prematurely dead individuals is highly valuable; ignoring it is likely to bias the results in an unconservative way. This is particularly critical at high concentrations where mortality may be very high.
+
+In a standard toxicity test, mortality is usually also recorded regularly, *i.e*. at each time point when reproductive output is counted. Using these survival data, we can approximate for each individual the time that it has been alive (which we assume to be the time that it can reproduce). As is commonly done in epidemiology to calculate incidence rates,  we can then calculate, for a given replicate, the total sum of the observation periods of each individual before its death (see next section). This sum can be expressed as a number of individual-days. Reproduction can then be evaluated in terms of the number of births per individual-day.
+
+In the following, we denote $M_{ijk}$ the observed number of surviving individuals at concentration $c_i$, replicate $j$ and time point $t_k$.
+
+## Estimation of the effective observation period
+
+We define the effective observation period as the sum for all individuals of the time they spent alive in the experiment. It is counted in individual-days and is denoted $NID_{ij}$ at concentration $c_i$ and replicate $j$. As mentioned earlier, mortality is only observed at certain time points, so the real life time of an individual is unknown. In practice, we use the following simple approximation: if an individual is alive at $t_k$ but dead at $t_{k+1}$, its real life time is estimated as $\frac{t_{k+1}+t_k}{2}$.
+
+With this assumption, the effective observation period at concentration $c_i$ and replicate $j$ is then given by:
+
+$$
+NID_{ij} =   \sum_k M_{ij(k+1)} (t_{k+1} - t_k)
+           + (M_{ijk} - M_{ij(k+1)})\left( \frac{t_{k+1}+t_k}{2} - t_k \right)
+$$
+
+## Target-time DR analysis of count data
+
+In this section, we describe our so-called **target-time DR analysis**, where we model the cumulative number of offspring up to a target time as a function of the contaminant concentration and the effective observation period (cumulated life times of all individuals in the experiment, as described above). A more detailed presentation of this modelling approach can be found in [@delignette2014].
+
+We maintain here the convention that the index $i$ is used for concentration levels and $j$ for replicates. The data will therefore correspond to a set $\{(NID_{ij}, N_{ij})\}_i$ of pairs, where $NID_{ij}$ denotes the effective observation period (in number of individual-days) and $N_{ij}$ is the number of reproductive output. These observations are assumed to be drawn independently from a distribution that is a function of the contaminant concentration $c_i$.
+
+### Modelling
+
+We assume here that the effect of the contaminant under consideration on the reproduction rate [^1] does not depend on the exposure duration, but only on the concentration of the contaminant. Formally, the reproduction rate at contaminant concentration $c_i$ is modelled by a three-parameters log-logistic model that is writting as follows:
+
+[^1]: i.e., the number of reproduction outputs during the experiment per individual-day.
+
+$$
+f(c;\theta)=\frac{d}{1+(\frac{c}{e})^b} \quad \textrm{with} \quad
+\theta=(e,b,d)
+$$
+
+Here $d$ corresponds to the reproduction rate in absence of
+the contaminant (i.e. under control conditions) and $e$ is the value of the $EC_{50}$, i.e. the concentration that divides the average number of offspring by two with respect to the control condition.
+
+Then the number of reproductive outputs $N_{ij}$ at concentration $c_i$ in replicate $j$ can be modelled using a Poisson distribution:
+
+$$
+N_{ij} \sim Poisson(f(c_i ; \theta) \times NID_{ij})
+$$
+
+This model will be referred to as the *Poisson model*. If there is a non-negligible variability in the reproduction rate between replicates at some fixed concentrations, we add a second model, called the *Gamma-Poisson model*, which states that:
+
+$$
+N_{ij} \sim Poisson(F_{ij} \times NID_{ij})
+$$
+
+where the reproduction rate $F_{ij}$ at $c_i$ in replicate $j$ is a random variable following a gamma distribution. By introducing a dispersion parameter $\omega$, we assume that:
+
+$$
+F_{ij} \sim gamma\left( \frac{f(c_i;\theta)}{\omega}, \frac{1}{\omega} \right)
+$$
+
+Note that a gamma distribution with parameters $\alpha$ and $\beta$ has mean $\frac{\alpha}{\beta}$ and variance $\frac{\alpha}{\beta^2}$, which are here $f(c_i;\theta)$ and $\omega f(c_i;\theta)$, respectively. Hence $\omega$ can be considered as an overdispersion parameter: the greater its value, the greater the between-replicate variability.
+
+### Inference
+
+Posterior distributions for parameters $b$, $d$ and $e$ are estimated
+using JAGS [@rjags2025] with the following priors:
+
+-   we assume that the range of the tested concentrations in a toxicity experiment has been chosen to wrap the $EC_{50}$ with a high probability. Formally, we chose:
+
+$$
+\log_{10} e \sim \mathcal{N} \left(\frac{\log_{10} (\min_i c_i) + 
+    \log_{10} (\max_i c_i)}{2}, \frac{\log_{10} (\max_i c_i) - 
+    \log_{10} (\min_i c_i)}{4} \right)
+$$
+which implies $e$ has a probability slightly higher than 95\% to lie between the minimum and the maximum tested concentrations.
+
+- we choose a quasi non-informative prior distribution for the shape parameter $b$:
+
+$$\log_{10} b \sim \mathcal{U}(-2,2)$$
+
+- as parameter $d$ corresponds to the reproduction rate without contaminant, we set a normal prior distribution $\mathcal{N}(\mu_d,\sigma_d)$ using the control data:
+
+$$
+\begin{align*}
+  \mu_d & = \frac{1}{r_0} \sum_j \frac{N_{0j}}{NID_{0j}}\\
+  \sigma_d & = \sqrt{\frac{\sum_j \left( \frac{N_{0j}}{NID_{0j}} -  \mu_d\right)^2}{r_0(r_0 - 1)}}\\
+\end{align*}
+$$
+
+where $r_0$ is the number of replicates in the control condition.
+
+*Note that since control data are used to estimate the prior distribution on parameter $d$, the corresponding data are removed from the data set before the fitting phase*.
+
+- we choose a quasi non-informative prior distribution for the parameter $\omega$ of the *Gamma-Poisson* model:
+
+$$log_{10}(\omega) \sim \mathcal{U}(-4,4)$$
+
+For a given data set, the procedure implemented in `morseDR` will fit both *Poisson* and *Gamma-Poisson* models and use the Deviance Information Criterion (DIC) to select the most appropriate one. In situations where overdispersion (i.e. between-replicate variability) is negligible, the use of the *Poisson* model will provide more reliable estimates. Therefore, a *Poisson* model is preferred unless the *Gamma-Poisson* model has a sufficiently lower DIC (in practice we require a difference of 10).
+
+# DR modelling of quantitative continuous data
+
+Data is quantitative and continuous when it can (theoretically) take any value in an open real interval. Examples of quantitative continuous data include measurements of height, length, body weight... For practical reasons, the resolution of the measurements depends on the quality of the experimental device. Typically, **quantitative continuous data** are associated with a dimension (e.g., $g$, $cm$, $g.L^{-1}1$...).
+
+For the sake of clarity, we will refer to growth toxicity test data below, but the models apply whatever the type of quantitative continuous data.
+
+## Target-time DR analysis of quantitative continuous data
+
+In a growth inhibition toxicity test, individuals are exposed to a range of measured concentrations (sometimes called application rates, e.g. in the case of terrestrial plants) of a given contaminant
+over a period of time. Growth data (e.g. height, length, weight of individuals) are collected at specified time points throughout the exposure period. Ultimately, a growth data set is collected. At a chosen target time, the observations can be described as a set of pairs $\{ X_i, Y_i \}$, where $X_i$ are the concentrations (or rates) tested, and $Y_i$ are the growth measurements.
+
+### Modelling
+
+The so-called **target time DR model** for quantitative continuous data is defined as follows. Assuming that $Y_i$ is normally distributed with mean $\mu$ and standard deviation $\sigma$, and that the mean $\mu$ is defined as a function $f$ of the contaminant concentration (or rate), we obtain:
+
+$$
+Y_i \sim \mathcal{N}\left( f(X_i), \sigma^2 \right)
+$$
+
+There may be various possibilities to mathematically express the function $f$. In the `morseDR` package we chose the three-parameters log-logistic model:
+
+$$
+f(c;\theta) = \frac{d}{1 + (\frac{c}{e})^b} \quad \textrm{with} \quad
+\theta=(e,b,d)
+$$
+
+where parameters $e$, $b$ and $d$ are positive:
+
+- Parameter $b$ is the shape parameter (i.e. the “slope” of the dose-response curve corresponding to the effect intensity of the contaminant).
+- Parameter $d$ corresponds to the growth measurement under control conditions (i.e. in the absence of the contaminant).
+- Parameter $e$ corresponds to the $EC_{50}$ (or the $ER_{50}$).
+
+## Inference
+
+Ideally, prior distributions are defined for each parameter prior to an experimental study, according to information previously available in the literature and/or obtained from previous experiments. Depending on the sources from which the information comes, informative, semi-informative or non-informative prior distributions can be used. If a parameter has been estimated in previous studies or if previous data are available, a prior distribution can easily be characterised with an appropriate probability distribution. However, if no information is available, but an order of magnitude is available (e.g., positive only), it is possible to use a vague prior. If no information is available on the order of magnitude of a parameter, its prior is usually defined on a decimal logarithmic scale to give equal probability to low and high expected values.
+
+In the `morseDR` package, priors are defined as follows:
+
+- a quasi non-informative prior for parameter $b$:
+
+$$
+\log_{10}(b) \sim \mathcal{U}(-2,2)
+$$
+
+- a uniform prior for parameter $d$ with a dedicated upper bound:
+
+$$
+d \sim  \mathcal{U}(0,2 \times \max(Y))
+$$
+
+where $\max(Y)$ is the highest observed $Y$ value for the species under consideration. Thus, this observation is removed from the data before the fitting phase.
+
+- For parameter $e$, we assume that the range of the tested concentrations (or rates) in the experiment has been chosen to
+wrap the $EC_{50}$ (or the $ER_{50}$) with a high probability. Formally, we chose the following normal prior distribution for parameter $e$:
+
+$$
+\log_{10}(e) \sim \mathcal{N} \left(
+\dfrac{\log_{10}(\max(X))+\log_{10}(\min(X))}{2} , 
+\dfrac{\log_{10}(\max(X)) - \log_{10}(\min(X))}{4}
+\right)
+$$
+
+where $\min(X)$ and $\max(X)$ are the smallest and the highest tested concentrations (or rates), respectively.
+
+- a uniform prior for parameter $\sigma$:
+
+$$
+\sigma \sim \mathcal{U} \left( 0, \max(Y) \right)
+$$
+
+with $\max(Y)$ as defined above.
+
+<!-- # References -->
+
+
