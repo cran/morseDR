@@ -1,5 +1,13 @@
 === morseDR : MOdelling tools for Dose-Response ===
 
+Version 0.1.3
+==========
+
+- Fix `priorPosterior()` failing on `BinaryFitTT` fits with no mortality in
+  the control (model `loglogisticbinom_2`, i.e. no `d` parameter): the prior
+  sampling no longer unconditionally references `d`-related bounds that only
+  exist for `loglogisticbinom_3`.
+
 Version 0.1.2
 =============
 

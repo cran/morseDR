@@ -1,6 +1,6 @@
-fc0f911f58c7e906b6995c0df4c13150 *DESCRIPTION
+2806fff5a0c46d09215915901b266427 *DESCRIPTION
 a2cd2a65c3eb1ae1a47096a8189ad678 *NAMESPACE
-89620928d43bb294434050668e21302b *NEWS
+521cefe1d7e898226ab21237bb792801 *NEWS
 b4a578f965233a415b2a15715c7df98c *R/DoseResponse.R
 cfaf41f2bc7378edd242cc1ec4fcf048 *R/JAGS.R
 df85e970417504ada231307eced17704 *R/JAGS_load.R
@@ -33,14 +33,14 @@ a9d8533b1211f858a887ebfd1eb9c916 *R/plot-XCX.R
 52a043187891aaedd2ca75ca6836a4d2 *R/predict-FitTTBinary.R
 f011a6dd83a237a89be362572c7ab5d8 *R/predict-FitTTContinuous.R
 b7cd8cff698889dc7bd9f1489a2e40d8 *R/predict-FitTTCount.R
-168b5aa6274fa9d885694ad91cf376f4 *R/priorPosterior.R
+227c98da705ea94629ffea3dd874c9a9 *R/priorPosterior.R
 baaed23db17fea079731081d6bcc54e2 *R/summary-FitTTBinary.R
 995946429611c0bb21ced4db98aa2ba4 *R/summary-FitTTContinuous.R
 cbe3bf70f94871f397a0ca747b1ee26e *R/summary-FitTTCount.R
 3f1197d6844ce5e452195b8a5c378794 *R/summary-PPC.R
 8903bea42009b9f249baaab3b0524d2c *R/utils.R
 7ccbd01ff4610d5c4ebc1911558550b7 *R/zzz.R
-2f477d798f4d1a7c1c9f8869cac89f63 *README.md
+28c51487949d96d85ff40f90add19333 *README.md
 11239841f0380a2842de8c7f954aa74d *build/vignette.rds
 95c3a65381997244d73369c6d6364551 *data/cadmium1.rda
 3cc9183ab0ad2d787bf2d61f9b255b19 *data/cadmium2.rda
@@ -67,10 +67,10 @@ f463c54f85a84f32cde31b340d557ec7 *data/plant05.rda
 3e8627d996e7fcc9c4ab6ee3d97c5d14 *data/zinc_daphnia.rda
 2c40c08e7c28424f44b93d773b69365e *inst/doc/models.R
 c7c6438967b38215f437e7ea4f8d53c5 *inst/doc/models.Rmd
-306f00b8423724b80e3eef9175144f77 *inst/doc/models.html
+0b7a5a8ff1bf54303e922ad0273101e3 *inst/doc/models.html
 6b9417a7c666d78fcb36df67dc55c5ee *inst/doc/tutorial.R
 ec0d57e143ed1d2569d86cd5a1a6d0bb *inst/doc/tutorial.Rmd
-9f48b9ec6279899b3418ab775d33347d *inst/doc/tutorial.html
+561619ac068eb3b2b9e13591a85fd5f7 *inst/doc/tutorial.html
 3be9304b77753aad248e0bb060c1bd90 *man/CheckData.Rd
 fcff51f0629174ce451febc2996cc9ec *man/DoseResponse.Rd
 712cbbee2619b0ed06f6f0696570e66d *man/FitTT.Rd
@@ -110,6 +110,7 @@ f959a1cb45b7922a28d6ed0edf6bd51e *man/plant09.Rd
 cf1755910887c8638257e1c5b82aa006 *man/zinc.Rd
 2946bb9aaf2185777e96ec5b1e30d6be *man/zinc_daphnia.Rd
 44841c2af1bc21409c777f8fa7f1dd46 *tests/testthat.R
+5a40be1f20c3fd65bcf782c6937d8154 *tests/testthat/Rplots.pdf
 c6b85aa3501550872683a93875bed485 *tests/testthat/helper.R
 62a721d2d9ee0aeb2da050003d16901a *tests/testthat/test-00_data.R
 aa38c707cbfb3c68f5b091f4c7e3ec03 *tests/testthat/test-01_DataCheck.R

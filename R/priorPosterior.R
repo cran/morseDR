@@ -23,7 +23,6 @@ priorPosterior.BinaryFitTT <- function(fit, size_sample = 1e3, ...) {
 
     jd = fit$jags.data
     df_prior <- data.frame(
-        d = runif(size_sample, jd$dmin, jd$dmax),
         log10b = runif(size_sample, jd$log10bmin, jd$log10bmax),
         log10e = rnorm(size_sample, jd$meanlog10e, sqrt(1/jd$taulog10e))
     )
